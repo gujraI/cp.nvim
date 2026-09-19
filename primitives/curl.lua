@@ -16,21 +16,15 @@ function curl_wrapper.new(config)
 	return setmetatable(instance, curl_wrapper)
 end
 
----Makes the HTTP request. You probably wouldn't need
----to call this directly. Default flags used:
---- -s=silent
---- -X=method
---- --max-time=timeout
---- -H=headers
---- -d=request body
+---Makes the HTTP request async. You probably wouldn't need
+---to call this directly. Pass a callback to get the o/p.
 ---@param endpoint string
 ---@param method HTTPMethods
 ---@param opts CurlRequestOpts
----@return CurlResponse
 function curl_wrapper:request(endpoint, method, opts)
 	opts = opts or {}
 	local url = self.base_url .. endpoint
-	local args = { "curl", "-s", "-X", method, "--max-time", tostring(self.timeout_ms / 1000) }
+	local args = { "curl", "-s", "-X", method, "--max-time", tostring(self.timeout_ms / 1000), "-w", "\n%{http_code}" }
 
 	for key, value in pairs(self.default_headers) do
 		table.insert(args, "-H")
@@ -43,24 +37,27 @@ function curl_wrapper:request(endpoint, method, opts)
 	end
 
 	table.insert(args, url)
+	-- TODO: Remove \n%{http_code} from the body.
 	local curlFunction = function()
 		self.last_request_time = vim.uv.now()
 		vim.system(args, { text = true }, function(result)
-			if opts.callback then
-				--- @type CurlResponse
-				local response = {
-					ok = result.code == 0,
-					exit_code = result.code,
-					body = result.stdout or "",
-					err = result.stderr or "",
-				}
-				opts.callback(response)
-			end
+			--- @type number
+			local http_code = tonumber(string.match(result.stdout, "(%d%d%d)$")) or 0
+			--- @type CurlResponse
+			local response = {
+				ok = result.code == 0 and http_code >= 200 and http_code < 300,
+				exit_code = result.code,
+				http_status_code = http_code,
+				body = result.stdout or "",
+				err = result.stderr or "",
+			}
+			opts.callback(response)
 		end)
 	end
 
-	if self.last_request_time and vim.uv.now() - self.last_request_time <= self.min_request_interval_ms then
-		vim.defer_fn(curlFunction, self.timeout_ms)
+	local elapsed = vim.uv.now() - self.last_request_time
+	if self.last_request_time and elapsed <= self.min_request_interval_ms then
+		vim.defer_fn(curlFunction, self.min_request_interval_ms - elapsed)
 	else
 		curlFunction()
 	end
@@ -69,7 +66,6 @@ end
 ---Makes a GET call to the given endpoint.
 ---@param endpoint string
 ---@param opts CurlRequestOpts
----@return CurlResponse
 function curl_wrapper:get(endpoint, opts)
 	return self:request(endpoint, "GET", opts)
 end
