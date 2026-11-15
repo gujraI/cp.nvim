@@ -16,6 +16,7 @@
 ---@class CurlResponse
 ---@field ok boolean
 ---@field exit_code number
+---@field http_status_code number
 ---@field body string
 ---@field err string
 
@@ -40,6 +41,8 @@
 ---@field sampleCases TestCase[]
 ---@field constraints string
 
+--- Defines the configuration for each language supported
+--- by cp.nvim.
 ---@class LanguageConfig
 ---@field fileExtensions string[]
 ---@field compileCommand string
