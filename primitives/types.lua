@@ -22,6 +22,7 @@
 
 ---Body of the request. Callback to be fired
 ---after receiving the response.
+---The callback runs in a fast-event context.
 ---@class CurlRequestOpts
 ---@field body table|nil
 ---@field callback fun(response: CurlResponse)|nil
