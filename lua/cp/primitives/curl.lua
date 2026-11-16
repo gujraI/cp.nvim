@@ -24,7 +24,18 @@ end
 function curl_wrapper:request(endpoint, method, opts)
 	opts = opts or {}
 	local url = self.base_url .. endpoint
-	local args = { "curl", "-s", "-X", method, "--max-time", tostring(self.timeout_ms / 1000), "-w", "\n%{http_code}" }
+	local args = {
+		"curl",
+		"-s", --Silent
+		"-S", --Show errors
+		"-L", --Follow redirects
+		"-X", --Specifying method
+		method,
+		"--max-time", --timeout
+		tostring(self.timeout_ms / 1000),
+		"-w", --Write HTTP status code in output
+		"\n%{http_code}",
+	}
 
 	for key, value in pairs(self.default_headers) do
 		table.insert(args, "-H")
