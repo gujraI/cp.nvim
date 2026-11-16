@@ -16,7 +16,7 @@ function curl_wrapper.new(config)
 	return setmetatable(instance, curl_wrapper)
 end
 
----Makes the HTTP request async. You probably wouldn't need
+---Makes the async HTTP request. You probably wouldn't need
 ---to call this directly. Pass a callback to get the o/p.
 ---@param endpoint string
 ---@param method HTTPMethods
@@ -37,21 +37,23 @@ function curl_wrapper:request(endpoint, method, opts)
 	end
 
 	table.insert(args, url)
-	-- TODO: Remove \n%{http_code} from the body.
 	local curlFunction = function()
 		self.last_request_time = vim.uv.now()
 		vim.system(args, { text = true }, function(result)
-			--- @type number
-			local http_code = tonumber(string.match(result.stdout, "(%d%d%d)$")) or 0
+			local http_response, http_code = result.stdout:match("^(.*)\n(%d%d%d)$")
+			http_code = tonumber(http_code) or -1
+			http_response = http_response or result.stdout
 			--- @type CurlResponse
 			local response = {
 				ok = result.code == 0 and http_code >= 200 and http_code < 300,
 				exit_code = result.code,
 				http_status_code = http_code,
-				body = result.stdout or "",
+				body = http_response or "",
 				err = result.stderr or "",
 			}
-			opts.callback(response)
+			if opts.callback then
+				opts.callback(response)
+			end
 		end)
 	end
 
